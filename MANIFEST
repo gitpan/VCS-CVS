@@ -1,0 +1,5 @@
+MANIFEST
+MANIFEST.SKIP
+Makefile.PL
+CVS.pm
+testCVS.pl

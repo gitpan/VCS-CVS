@@ -1,23 +1,22 @@
 #!/usr/gnu/bin/perl -w
 #
 # Name:
-#	testCVS.pl.
+#	test.pl.
 #
 # Purpose:
 #	To test $PERL5LIB/VCS/CVS.pm.
 #
 # Warning:
-#	setenv CVSROOT <somethingHarmless> before this.
+#	setenv CVSROOT <somethingHarmless> during this.
 
 use integer;
 use strict;
 
+use Cwd;
 use File::Basename;
 use File::Copy;
 use File::Path;
 use VCS::CVS;
-
-require 'projectLib.pl';
 
 #------------------------------------------------------------------
 
@@ -26,17 +25,23 @@ sub addDirectory
 	my($cvs, $projectName, $subDirName, $fileName, $addDirMsg,
 		$addFileMsg, $verbose, $permissions) = @_;
 
-	&init("$projectName/$subDirName", $0, $verbose, $permissions);
+	&init("$projectName/$subDirName", $fileName, $verbose, $permissions);
 
 	&heading('addDirectory');
 	$cvs -> addDirectory($projectName, $subDirName, $addDirMsg);
 
 	print "\n";
 
-	&heading('addFile');
-	$cvs -> addFile("$projectName/$subDirName", $fileName, $addFileMsg);
+	# We can only add a file if we haven't used a sticky tag.
+	if ($projectName !~ /Strip/)
+	{
+		$fileName = fileparse($fileName, '');
 
-	print "\n";
+		&heading('addFile');
+		$cvs -> addFile("$projectName/$subDirName", $fileName, $addFileMsg);
+
+		print "\n";
+	}
 
 }	# End of addDirectory.
 
@@ -110,7 +115,7 @@ sub init
 
 	my($destination) = "$ENV{'HOME'}/$projectSource";
 
-	&heading("mtree+mkpath($destination)");
+	&heading("rmtree+mkpath($destination)");
 	rmtree($destination, $verbose);
 	mkpath($destination, $verbose, $permissions);
 
@@ -211,26 +216,30 @@ my($addFileMsg)		= 'Add file';
 my($dirName)		= 'project';
 my($fileName)		= fileparse($0, '');
 my($initialMsg)		= 'Initial version';
+my($myself)			= cwd() . "/$fileName";
 my($newTag)			= 'release_0.01';
 my($nullTag)		= '';
 my($permissions)	= 0775;	# But not '0775'!
-my($projectName)	= 'project';
-my($projectSource)	= 'projectSource';
+my($projectName)	= $$ . '-project';
+my($projectSource)	= $$ . '-projectSource';
 my($raw)			= 0;
 my($readOnly)		= 0;
 my($releaseTag)		= 'release_0.00';
 my($removeFileMsg)	= 'Remove file';
-my($roDirName)		= 'projectReadOnly';
-my($stripDirName)	= 'projectStrip';
+my($repository)		= $$ . '-repository';
+my($roDirName)		= $$ . '-projectReadOnly';
+my($stripDirName)	= $$ . '-projectStrip';
 my($subDirName)		= 'subDir';
 my($vendorTag)		= 'vendorTag';
 my($verbose)		= 1;
 
+$ENV{'CVSROOT'}		= "$ENV{'HOME'}/$repository";
+
 my($cvs)			= VCS::CVS -> new($projectName, $raw, $verbose, $permissions);
 
-chdir($ENV{'HOME'}) || die("Can't chdir($ENV{'HOME'}): $!");
+&init($projectSource, $myself, $verbose, $permissions);
 
-&init($projectSource, $0, $verbose, $permissions);
+chdir($ENV{'HOME'}) || die("Can't chdir($ENV{'HOME'}): $!");
 
 &createRepository($cvs, $projectSource, $vendorTag, $releaseTag, $initialMsg);
 
@@ -238,9 +247,9 @@ chdir($ENV{'HOME'}) || die("Can't chdir($ENV{'HOME'}): $!");
 &checkOut($cvs, $readOnly, $stripDirName, $releaseTag);
 &checkOut($cvs, (! $readOnly), $roDirName, $releaseTag);
 
-&addDirectory($cvs, $projectName, $subDirName, $fileName, $addDirMsg,
+&addDirectory($cvs, $projectName, $subDirName, $myself, $addDirMsg,
 	$addFileMsg, $verbose, $permissions);
-&addDirectory($cvs, $stripDirName, $subDirName, $fileName, $addDirMsg,
+&addDirectory($cvs, $stripDirName, $subDirName, $myself, $addDirMsg,
 	$addFileMsg, $verbose, $permissions);
 
 #&setTag($cvs, $projectName, $fileName, $newTag);

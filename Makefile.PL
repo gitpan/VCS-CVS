@@ -6,7 +6,7 @@ WriteMakefile
 (
 'clean'				=>
 	{
-	'FILES'			=> 'blib/* Makefile MANIFEST VCS-CVS-*'
+	'FILES'			=> 'blib/* Makefile VCS-CVS-*'
 	},
 'dist'				=>
 	{
@@ -18,7 +18,7 @@ WriteMakefile
 'PM'				=>
 	{
 	'CVS.pm' 		=> '$(INST_LIBDIR)/CVS.pm',
-	'testCVS.pl'	=> '$(INST_LIBDIR)/testCVS.pl'
+	'test.pl'		=> '$(INST_LIBDIR)/test.pl'
 	},
 'VERSION_FROM'		=> 'CVS.pm'
 );

@@ -14,23 +14,28 @@ package VCS::CVS;
 use strict;
 no strict 'refs';
 
-use vars qw(@EXPORT @EXPORT_OK @ISA);
-use vars qw($VERSION);
+use vars qw($VERSION @ISA @EXPORT @EXPORT_OK);
 
 use Carp;
 use Cwd;
-use Exporter();
 use File::Find;
 use File::Path;
 
-@ISA		= qw(Exporter);
+require Exporter;
+
+@ISA = qw(Exporter);
+
+# Items to export into callers namespace by default. Note: do not export
+# names by default without a very good reason. Use EXPORT_OK instead.
+# Do not simply export all your public functions/methods/constants.
+
 @EXPORT		= qw();
+
 @EXPORT_OK	= qw();
 
-# --------------------------------------------------------------------------
+$VERSION	= '1.02';
 
-$VERSION	= '1.01';
-
+# Preloaded methods go here.
 # --------------------------------------------------------------------------
 # Add an existing directory to the project.
 # $dir can be a full path, or relative to the CWD.
@@ -309,10 +314,10 @@ sub populate
 
 	$self -> runOrCroak(@args);
 
+	chdir($cwd) || croak("Can't chdir($cwd): $!");
+
 	# Compensate for yet another CVS bug.
 	$self -> _fixTag($releaseTag);
-
-	chdir($cwd) || croak("Can't chdir($cwd): $!");
 
 }	# End of populate.
 
@@ -711,10 +716,10 @@ sub _setTag
 
 	$self -> runOrCroak(@args);
 
+	chdir($cwd) || croak("Can't chdir($cwd): $!");
+
 	# Compensate for yet another CVS bug.
 	$self -> _fixTag($tag);
-
-	chdir($cwd) || croak("Can't chdir($cwd): $!");
 
 }	# End of _setTag.
 
@@ -748,6 +753,8 @@ sub _validateObject
 }	# End of _validateObject.
 
 # --------------------------------------------------------------------------
+
+# Autoload methods go after =cut, and are processed by the autosplit program.
 
 1;
 

@@ -1,0 +1,9 @@
+Revision history for Perl extension VCS::CVS.
+
+1.02  Tue Mar 30 15:40:42 1999
+	- original version; created by h2xs 1.18
+
+Use h2xs to create the skeleton for CVS.pm.
+
+Fix populate & _setTag so they do a chdir
+back before calling _fixTag.

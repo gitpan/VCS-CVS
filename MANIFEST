@@ -1,6 +1,7 @@
 MANIFEST
 MANIFEST.SKIP
 Makefile.PL
+Changes.txt
 CVS.pm
 test.pl
 t/base.t

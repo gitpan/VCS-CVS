@@ -220,18 +220,20 @@ my($myself)			= cwd() . "/$fileName";
 my($newTag)			= 'release_0.01';
 my($nullTag)		= '';
 my($permissions)	= 0775;	# But not '0775'!
-my($projectName)	= $$ . '-project';
-my($projectSource)	= $$ . '-projectSource';
+my($projectName)	= 'project';
+my($projectSource)	= 'projectSource';
 my($raw)			= 0;
 my($readOnly)		= 0;
 my($releaseTag)		= 'release_0.00';
 my($removeFileMsg)	= 'Remove file';
-my($repository)		= $$ . '-repository';
-my($roDirName)		= $$ . '-projectReadOnly';
-my($stripDirName)	= $$ . '-projectStrip';
+my($repository)		= 'repository';
+my($roDirName)		= 'projectReadOnly';
+my($stripDirName)	= 'projectStrip';
 my($subDirName)		= 'subDir';
 my($vendorTag)		= 'vendorTag';
 my($verbose)		= 1;
+
+$ENV{'HOME'}		= cwd();
 
 $ENV{'CVSROOT'}		= "$ENV{'HOME'}/$repository";
 

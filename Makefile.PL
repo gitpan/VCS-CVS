@@ -1,6 +1,6 @@
-#!/usr/gnu/bin/perl -w
-
 use ExtUtils::MakeMaker;
+# See lib/ExtUtils/MakeMaker.pm for details of how to influence
+# the contents of the Makefile that is written.
 
 WriteMakefile
 (
@@ -18,7 +18,7 @@ WriteMakefile
 'PM'				=>
 	{
 	'CVS.pm' 		=> '$(INST_LIBDIR)/CVS.pm',
-	'test.pl'		=> '$(INST_LIBDIR)/test.pl'
 	},
+'PREREQ_PM'			=> {},
 'VERSION_FROM'		=> 'CVS.pm'
 );

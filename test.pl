@@ -215,9 +215,11 @@ my($addDirMsg)		= 'Add directory';
 my($addFileMsg)		= 'Add file';
 my($dirName)		= 'project';
 my($fileName)		= fileparse($0, '');
+my($history)		= 1;
 my($initialMsg)		= 'Initial version';
 my($myself)			= cwd() . "/$fileName";
 my($newTag)			= 'release_0.01';
+my($noChange)		= 1;
 my($nullTag)		= '';
 my($permissions)	= 0775;	# But not '0775'!
 my($projectName)	= 'project';
@@ -235,9 +237,14 @@ my($verbose)		= 1;
 
 $ENV{'HOME'}		= cwd();
 
-$ENV{'CVSROOT'}		= "$ENV{'HOME'}/$repository";
+$ENV{'CVSROOT'}		= "$ENV{'HOME'}/VCS-CVS-test/$repository";
 
-my($cvs)			= VCS::CVS -> new($projectName, $raw, $verbose, $permissions);
+my($cvs)			= VCS::CVS -> new({
+						'project'		=> $projectName,
+						'raw'			=> $raw,
+						'history'		=> $history,
+						'permissions'	=> $permissions,
+						'verbose'		=> $verbose});
 
 &init($projectSource, $myself, $verbose, $permissions);
 
@@ -258,6 +265,10 @@ chdir($ENV{'HOME'}) || die("Can't chdir($ENV{'HOME'}): $!");
 &setTag($cvs, $newTag);
 
 &upToDate($cvs);
+
+print "Update returned: \n", join("\n", @{$cvs -> update($noChange)}), "\n";
+print "\n";
+print "History returned: \n", join("\n", @{$cvs -> history({'-e' => ''})}), "\n";
 
 &strip($cvs, $stripDirName);
 

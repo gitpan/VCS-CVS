@@ -4,6 +4,11 @@ use ExtUtils::MakeMaker;
 
 WriteMakefile
 (
+	($] ge '5.005') ?
+	(
+		'AUTHOR' => 'Ron Savage (rpsavage@ozemail.com.au)',
+		'ABSTRACT' => "Interface to GNU's CVS",
+    ) : (),
 'clean'				=>
 	{
 	'FILES'			=> 'blib/* Makefile VCS-CVS-*'

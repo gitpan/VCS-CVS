@@ -4,7 +4,7 @@ package VCS::CVS;
 #	VCS::CVS.
 #
 # Documentation:
-#	POD-style documentation is at the end. Extract it with pod2html.*.
+#	POD-style documentation is at the end. Extract it with pod2html.
 #
 # Tabs:
 #	4 spaces || die.
@@ -33,7 +33,7 @@ require Exporter;
 
 @EXPORT_OK	= qw();
 
-$VERSION	= '1.02';
+$VERSION	= '2.00';
 
 # Preloaded methods go here.
 # --------------------------------------------------------------------------
@@ -207,6 +207,14 @@ sub createRepository
 	# Write nothing.
 	close(OUT);
 
+	if ($self -> {'history'})
+	{
+		$file = "$ENV{'CVSROOT'}/CVSROOT/history";
+		open(OUT, "> $file") || croak("Can't open($file): \nFailure: $!");
+		# Write nothing.
+		close(OUT);
+	}
+
 }	# End of createRepository.
 
 # --------------------------------------------------------------------------
@@ -238,29 +246,91 @@ sub getTags
 }	# End of getTags.
 
 # --------------------------------------------------------------------------
-# $raw	Interpretation
-#	0	Convert tags from CVS format to real format. Eg: release_1.23. Default.
-#	1	Set/Get tags in raw CVS format. Eg: release_1_23.
+# Run cvs history [-options].
+# Return a reference to a list of lines.
+#
+# The default option is -c.
+
+sub history
+{
+	my($self, $optionRef) = @_;
+
+	# Preserve the caller's current working directory.
+	# cvs status only works on the whole repository when run from your project dir
+	# (assuming, of course, you've checked out into your home directory...).
+	my($cwd) = cwd();
+	chdir("$ENV{'HOME'}/$self->{'project'}") ||
+		croak("Can't chdir($ENV{'HOME'}/$self->{'project'}): $!");
+
+	# CVS history options:
+	#	-c		Report commits, ie -xARM.
+
+	if (ref($optionRef) ne 'HASH')
+	{
+		$optionRef = {'-c' => ''};
+	}
+
+	my(@args) = ('cvs');
+	push(@args, 'history');
+	push(@args, join(' ', %$optionRef) );
+	@args = `@args`;
+	chomp(@args);
+
+	chdir($cwd) || croak("Can't chdir($cwd): $!");
+
+	\@args;
+
+}	# End of history.
+
+# --------------------------------------------------------------------------
+# These are the options in the anonymous hash of parameters you pass in to 'new'.
+#
+# 'project'
+#	'killerApp'	The name of the project. No default
+#
+# 'history'
+#	0			Do not create $CVSROOT/CVSROOT/history when createRepository() is called. Default
+#	1			Create $CVSROOT/CVSROOT/history, which initiates 'cvs history' stuff
+#
+# 'permissions'
+#	0775		Unix-specific. Default. Do not use '0775'
+#
+# 'raw'
+#	0			Convert tags from CVS format to real format. Eg: release_1.23. Default
+#	1			Set/Get tags in raw CVS format. Eg: release_1_23
+#
+# 'verbose'
+#	0			Run quietly
+#	1			Report progress. Default
 
 sub new
 {
-	my($class)					= shift;
-	my($self)					= {};
-	$self -> {'project'}		= shift || croak("No project name specified");
+	my($class, $optionRef)	= @_;
+	$class					= ref($class) || $class;
+	my($self)				= (ref($optionRef) eq 'HASH') ? $optionRef : {};
 
-	$self -> {'raw'}			= 0;
-	$self -> {'verbose'}		= 1;
-	$self -> {'permissions'}	= 0775;
+	my(%default) =
+	(
+		'history'		=> 0,
+		'permissions'	=> 0775,	# But not '0775'!
+		'project'		=> '',
+		'raw'			=> 0,
+		'verbose'		=> 1,
+	);
 
-	$self -> {'raw'}			= shift if ($#_ >= 0);
-	$self -> {'verbose'}		= shift if ($#_ >= 0);
-	$self -> {'permissions'}	= shift if ($#_ >= 0);
+	my($option);
 
-	$ENV{'HOME'} = '' if (! defined($ENV{'HOME'}) );
-	$ENV{'CVSROOT'} = '' if (! defined($ENV{'CVSROOT'}) );
+	for $option (keys(%default) )
+	{
+		$self -> {$option} = $default{$option} if (! defined($self -> {$option}) );
+	}
 
-	croak("Failure: Env. var HOME not set") if (length($ENV{'HOME'}) == 0);
-	croak("Failure: Env. var CVSROOT not set") if (length($ENV{'CVSROOT'}) == 0);
+	$ENV{'HOME'}	= '' if (! defined($ENV{'HOME'}) );
+	$ENV{'CVSROOT'}	= '' if (! defined($ENV{'CVSROOT'}) );
+
+	croak("Failure: No project name specified")	if (! $self -> {'project'});
+	croak("Failure: Env. var HOME not set")		if (! $ENV{'HOME'});
+	croak("Failure: Env. var CVSROOT not set")	if (! $ENV{'CVSROOT'});
 
 	return bless $self, $class;
 
@@ -574,6 +644,45 @@ sub stripCVSDirs
 }	# End of stripCVSDirs.
 
 # --------------------------------------------------------------------------
+# Run cvs -q [-n] update.
+# Return a reference to a list of lines.
+# Each line will start with one of [UARMC?], as per the CVS docs.
+#
+# Parameters	Interpretation
+#	$n			0 -> Do not add -n to the cvs update command
+#				1 -> Add -n to the command
+
+sub update
+{
+	my($self, $n) = @_;
+
+	$n = 0 if (! defined($n) );
+
+	# Preserve the caller's current working directory.
+	# cvs status only works on the whole repository when run from your project dir
+	# (assuming, of course, you've checked out into your home directory...).
+	my($cwd) = cwd();
+	chdir("$ENV{'HOME'}/$self->{'project'}") ||
+		croak("Can't chdir($ENV{'HOME'}/$self->{'project'}): $!");
+
+	# CVS options:
+	#	-q				Quiet
+	#	-n				Do not change any files
+
+	my(@args) = ('cvs');
+	push(@args, '-q')	if (! $self -> {'verbose'});
+	push(@args, '-n')	if ($n);
+	push(@args, 'update');
+	@args = `@args`;
+	chomp(@args);
+
+	chdir($cwd) || croak("Can't chdir($cwd): $!");
+
+	\@args;
+
+}	# End of update.
+
+# --------------------------------------------------------------------------
 # Return	Interpretation
 #	0		Repository not up-to-date.
 #	1		Up-to-date.
@@ -803,8 +912,10 @@ just asking for trouble.
 
 	use VCS::CVS;
 
+	my($history)        = 1;
 	my($initialMsg)     = 'Initial version';
-	my($nullTag)		= '';
+	my($noChange)       = 1;
+	my($nullTag)        = '';
 	my($permissions)    = 0775;	# But not '0775'!
 	my($project)        = 'project';
 	my($projectSource)  = 'projectSource';
@@ -813,11 +924,23 @@ just asking for trouble.
 	my($releaseTag)     = 'release_0.00';
 	my($vendorTag)      = 'vendorTag';
 	my($verbose)        = 1;
-	my($cvs)            = VCS::CVS -> new($project, $raw, $verbose, $permissions);
+
+	# Note the anonymous hash in the next line, new as of V 1.10.
+
+	my($cvs)            = VCS::CVS -> new({
+				'project' => $project,
+				'raw' => $raw,
+				'verbose' => $verbose,
+				'permissions' => $permissions,
+				'history' => $history});
 
 	$cvs -> createRepository();
 	$cvs -> populate($projectSource, $vendorTag, $releaseTag, $initialMsg);
 	$cvs -> checkOut($readOnly, $nullTag, $project);
+
+	print join("\n", @{$cvs -> update($noChange)});
+	print "\n";
+	print join("\n", @{$cvs -> history()});
 
 	exit(0);
 
@@ -831,36 +954,44 @@ deals with some sort of source code control system.
 I have seen CVS corrupt binary files, even when run with CVS's binary option -kb.
 So, since CVS doesn't support binary files, neither does VCS::CVS.
 
+Stop press: CVS V 1.10 (with RCS 5.7) supports binary files.
+
 Subroutines whose names start with a '_' are not normally called by you.
-
-Install C<VCS::CVS.pm> in the usual fashion:
-
-	perl Makefile.PL LIB=$PERL5LIB
-	make
-	make install
-
-This installs it into $PERL5LIB/VCS/CVS.pm.
 
 There is a test program included, but I have not yet worked out exactly how to
 set it up for make test. Stay tuned.
 
-If, like me, you don't have permission to write doc files into system directories,
-use:
+=head1 INSTALLATION
+
+You install C<VCS::CVS>, as you would install any perl module library,
+by running these commands:
+
+	perl Makefile.PL
+	make
+	make test
+	make install
+
+If you want to install a private copy of C<VCS::CVS> in your home
+directory, then you should try to produce the initial Makefile with
+something like this command:
+
+	perl Makefile.PL LIB=~/perl
+		or
+	perl Makefile.PL LIB=C:/Perl/Site/Lib
+
+If, like me, you don't have permission to write man pages into unix system
+directories, use:
 
 	make pure_install
 
 instead of make install. This option is secreted in the middle of p 414 of the
-dromedary book.
+second edition of the dromedary book.
 
 =head1 WARNING re CVS bugs
 
 The following are my ideas as to what constitutes a bug in CVS:
 
 =over 4
-
-=item *
-
-Binary files are corrupted, even when using the -kb option.
 
 =item *
 
@@ -881,10 +1012,6 @@ C<'cvs checkout -d NameOfDir'> inserts a leading space into the name of
 the directory it creates.
 
 =back
-
-I'm using CVS V 1.9 and RCS V 5.6, but some of these bugs were found last
-year, perhaps with earlier versions, and have not been tested for in the
-current version. The 2 tag problems are still present as of 10-Jul-98.
 
 =head1 WARNING re test environment
 
@@ -943,19 +1070,19 @@ scanner correctly associates the $self token with the {'thing'} token.
 
 I regard this as a bug.
 
-=head1 C<addDirectory($dir, $subDir, $message)>
+=head1 addDirectory($dir, $subDir, $message)
 
 Add an existing directory to the project.
 
 $dir can be a full path, or relative to the CWD.
 
-=head1 C<addFile($dir, $file, $message)>
+=head1 addFile($dir, $file, $message)
 
 Add an existing file to the project.
 
 $dir can be a full path, or relative to the CWD.
 
-=head1 C<checkOut($readOnly, $tag, $dir)>
+=head1 checkOut($readOnly, $tag, $dir)
 
 Prepare & perform 'cvs checkout'.
 
@@ -1002,18 +1129,61 @@ converted to CVS's form release_1_23.
 
 $dir can be a full path, or relative to the CWD.
 
-=head1 C<commit($message)>
+=head1 commit($message)
 
 Commit changes.
 
 Called as appropriate by addFile, removeFile and removeDirectory,
 so you don't need to call it.
 
-=head1 C<createRepository()>
+=head1 createRepository()
 
 Create a repository, using the current $CVSROOT.
 
-=head1 C<getTags()>
+This involves creating these files:
+
+=over 4
+
+=item *
+
+$ENV{'CVSROOT'}/CVSROOT/modules
+
+=item *
+
+$ENV{'CVSROOT'}/CVSROOT/val-tags
+
+=item *
+
+$ENV{'CVSROOT'}/CVSROOT/history
+
+=back
+
+Notes:
+
+=over 4
+
+=item *
+
+The 'modules' file contains these lines:
+
+	CVSROOT  CVSROOT
+	modules  CVSROOT  modules
+	$self -> {'project'}  $self -> {'project'}
+
+where $self -> {'project'} comes from the 'project' parameter to new()
+
+=item *
+
+The 'val-tags' file is initially empty
+
+=item *
+
+The 'history' file is only created if the 'history' parameter to new() is set.
+The file is initially empty
+
+=back
+
+=head1 getTags()
 
 Return a reference to a list of tags.
 
@@ -1022,19 +1192,42 @@ See also: the $raw option to new().
 C<getTags> does not take a project name because tags belong to the repository
 as a whole, not to a project.
 
-=head1 C<new($project, $raw, $verbose, $permissions)>
+=head1 history({})
+
+Report details from the history log, $CVSROOT/CVSROOT/history.
+
+You must have used new({'history' => 1}), or some other mechanism, to create
+the history file, before CVS starts logging changes into the history file.
+
+The anonymous hash takes any parameters 'cvs history' takes, and joins them
+with a single space. Eg:
+
+	$cvs -> history();
+
+	$cvs -> history({'-e' => ''});
+
+	$cvs -> history({'-xARM' => ''});
+
+	$cvs -> history({'-u' => $ENV{'LOGNAME'}, '-x' => 'A'});
+
+but not
+
+	$cvs -> history({'-xA' => 'M'});
+
+because it doesn't work.
+
+=head1 new({})
 
 Create a new object. See the synopsis.
 
+The anonymous hash takes these parameters, of which 'project' is the
+only required one.
+
 =over 4
 
 =item *
 
-$raw == 0 -> Convert tags from CVS format to real format. Eg: release_1.23. Default.
-
-=item *
-
-$raw == 1 -> Return tags in raw CVS format. Eg: release_1_23.
+'project' => 'killerApp'. The required name of the project. No default
 
 =back
 
@@ -1042,17 +1235,47 @@ $raw == 1 -> Return tags in raw CVS format. Eg: release_1_23.
 
 =item *
 
-$verbose == 0 -> Do not report on the progress of mkpath/rmtree. Default.
-
-=item *
-
-$verbose == 1 -> Report on the progress of mkpath/rmtree.
+'permissions' => 0775. Unix-specific stuff. Default. Do not use '0775'.
 
 =back
 
-The default directory permissions is 0775. Do not use '0775'!
+=over 4
 
-=head1 C<populate($sourceDir, $vendorTag, $releaseTag, $message)>
+=item *
+
+'history' => 0. Do not create $CVSROOT/CVSROOT/history when createRepository() is called. Default
+
+=item *
+
+'history' => 1. Create $CVSROOT/CVSROOT/history, which initiates 'cvs history' stuff
+
+=back
+
+=over 4
+
+=item *
+
+'raw' => 0. Convert tags from CVS format to real format. Eg: release_1.23. Default.
+
+=item *
+
+'raw' => 1. Return tags in raw CVS format. Eg: release_1_23.
+
+=back
+
+=over 4
+
+=item *
+
+'verbose' => 0. Do not report on the progress of mkpath/rmtree
+
+=item *
+
+'verbose' => 1. Report on the progress of mkpath/rmtree. Default
+
+=back
+
+=head1 populate($sourceDir, $vendorTag, $releaseTag, $message)
 
 Import an existing directory structure. But, (sub) import is a reserved word.
 
@@ -1080,7 +1303,7 @@ converted to CVS's form release_1_23.
 
 =back
 
-=head1 C<removeDirectory($dir)>
+=head1 removeDirectory($dir)
 
 Remove a directory from the project.
 
@@ -1093,7 +1316,7 @@ Ie: $dir starts from - but excludes - your home directory
 
 You can't remove the current directory, or a parent.
 
-=head1 C<removeFile($dir, $file, $message)>
+=head1 removeFile($dir, $file, $message)
 
 Remove a file from the project.
 
@@ -1103,11 +1326,11 @@ as well as deleting it from the repository.
 $dir can be a full path, or relative to the CWD.
 $file is relative to $dir.
 
-=head1 C<runOrCroak>
+=head1 runOrCroak()
 
 The standard way to run a system command and report on the result.
 
-=head1 C<setTag($tag)>
+=head1 setTag($tag)
 
 Tag the repository.
 
@@ -1128,7 +1351,7 @@ converted to CVS's form release_1_23.
 
 =back
 
-=head1 C<stripCVSDirs($dir)>
+=head1 stripCVSDirs($dir)
 
 Delete all CVS directories and files from a copy of the repository.
 
@@ -1152,7 +1375,7 @@ Root
 
 Zap 'em.
 
-=head1 C<status()>
+=head1 status()
 
 Run cvs status.
 
@@ -1160,7 +1383,26 @@ Return a reference to a list of lines.
 
 Only called by upToDate(), but you may call it.
 
-=head1 C<upToDate()>
+=head1 update($noChange)
+
+Run 'cvs C<-q> [C<-n>] update', returning a reference to a list of lines.
+Each line will start with one of [UARMC?], as per the CVS docs.
+
+$cvs -> update(1) is a good way to get a list of uncommited changes, etc.
+
+=over 4
+
+=item *
+
+$noChange == 0 -> Do not add C<-n> to the cvs command. Ie update your working copy
+
+=item *
+
+$noChange == 1 -> Add C<-n> to the cvs command. Do not change any files
+
+=back
+
+=head1 upToDate()
 
 =over 4
 
@@ -1174,7 +1416,7 @@ return == 1 -> Up-to-date.
 
 =back
 
-=head1 C<_checkOutDontCallMe($readOnly, $tag, $dir)>
+=head1 _checkOutDontCallMe($readOnly, $tag, $dir)
 
 Checkout a current copy of the project.
 
@@ -1192,23 +1434,23 @@ $readOnly == 1 -> Check out files as read-only.
 
 =back
 
-=head1 C<_fixTag($tag)>
+=head1 _fixTag($tag)
 
 Fix a tag which CVS failed to add.
 
 Warning: $tag must be in CVS format: release_1_23, not release_1.23.
 
-=head1 C<_mkpathOrCroak($self, $dir)>
+=head1 _mkpathOrCroak($self, $dir)
 
 There is no need for you to call this.
 
-=head1 C<_readFile($file)>
+=head1 _readFile($file)
 
 Return a reference to a list of lines.
 
 There is no need for you to call this.
 
-=head1 C<_setTag($tag)>
+=head1 _setTag($tag)
 
 Tag the current version of the project.
 
@@ -1216,7 +1458,7 @@ Warning: $tag must be in CVS format: release_1_23, not release_1.23.
 
 You call setTag and it calls this.
 
-=head1 C<_validateObject($tag, $file, $mustBeAbsent)>
+=head1 _validateObject($tag, $file, $mustBeAbsent)
 
 Validate an entry in one of the CVS files 'module' or 'val-tags'.
 

@@ -32,7 +32,7 @@ sub Test($)
 	$result;
 }
 
-$ENV{'CVSROOT'}	= "$ENV{'HOME'}/VCS-CVS-test";
-my($spell)		= VCS::CVS -> new('test');
+$ENV{'CVSROOT'}	= '.';
+my($spell)		= VCS::CVS -> new({'project' => 'test'});
 
 Test($spell); # or print "Error...\n";

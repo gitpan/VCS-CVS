@@ -1,7 +1,8 @@
+Changes.txt
+CVS.pm
 MANIFEST
 MANIFEST.SKIP
 Makefile.PL
-Changes.txt
-CVS.pm
+Readme.txt
 test.pl
 t/base.t
